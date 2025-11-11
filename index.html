@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard IOT - Rezky</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        /* ============================== */
+        /* TEMA HIJAU & HITAM */
+        /* ============================== */
+        body { 
+            background-color: #121212; /* Latar Belakang Gelap */
+            color: #e0e0e0; /* Teks Default Terang */
+        }
+        .container-fluid { max-width: 1200px; margin-top: 20px; }
+
+        /* Card Umum */
+        .card {
+            background-color: #1e1e1e; /* Warna Card Lebih Gelap */
+            border: 1px solid #333;
+            color: #fff; /* Teks Card Umum */
+        }
+
+        /* Header Card */
+        .card-header {
+            background-color: #28a745 !important; /* Hijau Terang */
+            color: #121212 !important; /* Teks Hitam di Header Hijau */
+            font-weight: bold;
+        }
+
+        /* PERBAIKAN: Teks di Card Body */
+        .card-body, .list-group-item {
+            color: #f8f9fa !important; /* Force Teks Putih */
+        }
+        
+        /* PERBAIKAN: List Group Item (untuk Suhu Maks/Min) */
+        .list-group-item {
+            background-color: #2a2a2a; /* Warna item list lebih gelap */
+            border-color: #333;
+        }
+        
+        /* PERBAIKAN: Teks Muted (untuk pesan 'Tidak ada data...') */
+        .text-muted {
+            color: #aaa !important; /* Teks abu-abu terang agar kontras */
+        }
+        
+        /* WARNA GAUGE DAN RELAY (TETAP) */
+        .sensor-card { transition: transform 0.3s, box-shadow 0.3s; }
+        .sensor-card:hover { transform: translateY(-3px); box-shadow: 0 0 15px rgba(40, 167, 69, 0.5); } 
+        .temp-card { border-left: 5px solid #dc3545; } /* Border Kiri untuk penanda */
+        .humid-card { border-left: 5px solid #007bff; } 
+        .lux-card { border-left: 5px solid #ffc107; } 
+        .gauge-value { font-size: 2.5rem; font-weight: bold; }
+        .relay-status-on { color: #28a745; font-weight: bold; } 
+        .relay-status-off { color: #dc3545; font-weight: bold; } 
+        .btn-relay-control { width: 100px; }
+        .text-primary { color: #28a745 !important; } 
+        .bg-primary { background-color: #28a745 !important; }
+
+        .json-box { 
+            white-space: pre-wrap; 
+            background-color: #121212; 
+            padding: 10px; 
+            border-radius: 5px; 
+            max-height: 200px; 
+            overflow-y: scroll; 
+            font-family: monospace;
+            border: 1px solid #333;
+            color: #f8f9fa; 
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <h1 class="mb-4 text-center text-primary">
+            <i class="fas fa-microchip me-2"></i> Dashboard
+        </h1>
+        <p class="text-center">Status Koneksi: <span id="status" class="badge bg-success text-dark">Mengambil data...</span></p>
+        
+        <div class="row mb-4 align-items-center">
+            <div class="col-md-4">
+                <div class="card p-3 shadow-sm border-0 temp-card sensor-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title text-danger"><i class="fas fa-thermometer-half"></i> Suhu Rata-rata</h5>
+                        <div class="gauge-value text-danger" id="suhurata">N/A</div>
+                    </div>
+                    <small>°C</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-3 shadow-sm border-0 humid-card sensor-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title text-primary"><i class="fas fa-tint"></i> Kelembaban Rata-rata</h5>
+                        <div class="gauge-value text-primary" id="humidityrata">N/A</div>
+                    </div>
+                    <small>%</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-3 shadow-sm border-0 lux-card sensor-card">
+                    <h5 class="card-title text-warning"><i class="fas fa-lightbulb"></i> Kontrol Relay </h5>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <span class="fs-5">Status: <strong id="relay-status">UNKNOWN</strong></span>
+                        <div>
+                            <button id="relay-on" class="btn btn-success btn-sm btn-relay-control"><i class="fas fa-toggle-on"></i> ON</button>
+                            <button id="relay-off" class="btn btn-danger btn-sm btn-relay-control"><i class="fas fa-toggle-off"></i> OFF</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header">
+                        <i class="fas fa-chart-line me-1"></i> Data Agregat Sensor
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">Suhu Maks: <strong id="suhumax">N/A</strong> °C</li>
+                            <li class="list-group-item">Suhu Min: <strong id="suhumin">N/A</strong> °C</li>
+                            <li class="list-group-item">Lux Rata-rata: <strong id="luxrata">N/A</strong> %</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header">
+                        <i class="fas fa-calendar-alt me-1"></i> Suhu Maks per Bulan/Tahun
+                    </div>
+                    <div class="card-body" id="month-year-max-list">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <i class="fas fa-database me-1"></i> 10 Record Terakhir
+                    </div>
+                    <div class="card-body" id="records-list">
+                        </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-secondary">
+                        JSON Mentah (API Response)
+                    </div>
+                    <div class="card-body">
+                        <pre class="json-box" id="raw-json">Loading...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div> 
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://127.0.0.1:5000/api/sensor_data'; 
+        const RELAY_URL = 'http://127.0.0.1:5000/relay'; 
+        
+        async function controlRelay(state) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = `Mengirim perintah ${state} relay...`;
+
+            try {
+                const response = await fetch(RELAY_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ state: state }) // Mengirim {"state": "ON"/"OFF"}
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    statusElement.textContent = `Perintah Relay ${state} Berhasil.`;
+                    updateRelayDisplay(result.relay_state); 
+                } else {
+                    statusElement.textContent = `Gagal Kontrol Relay: ${result.error || 'Server Error'}`;
+                }
+            } catch (error) {
+                statusElement.textContent = `Error Koneksi Relay: ${error.message}`;
+                console.error('Relay control error:', error);
+            }
+        }
+
+        function updateRelayDisplay(state) {
+            const relayStatusEl = document.getElementById('relay-status');
+            relayStatusEl.textContent = state;
+            relayStatusEl.className = state === 'ON' ? 'relay-status-on' : 'relay-status-off';
+        }
+
+        async function fetchAndParseData() {
+            document.getElementById('status').textContent = 'Memproses data sensor...';
+            
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    document.getElementById('status').className = 'badge bg-danger text-white';
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json(); 
+                document.getElementById('status').className = 'badge bg-success text-dark';
+                document.getElementById('status').textContent = 'Data Sensor Berhasil Diperbarui';
+
+                document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2);
+
+                // Update Statistik Sederhana
+                document.getElementById('suhumax').textContent = data.suhumax !== undefined ? data.suhumax.toFixed(2) : 'N/A';
+                document.getElementById('suhumin').textContent = data.suhumin !== undefined ? data.suhumin.toFixed(2) : 'N/A';
+                document.getElementById('suhurata').textContent = data.suhurata !== undefined ? data.suhurata.toFixed(2) : 'N/A';
+                document.getElementById('luxrata').textContent = data.luxrata !== undefined ? data.luxrata.toFixed(2) : 'N/A';
+                document.getElementById('humidityrata').textContent = data.humidityrata !== undefined ? data.humidityrata.toFixed(2) : 'N/A';
+                
+                // Update Status Relay
+                if (data.relay_state) {
+                    updateRelayDisplay(data.relay_state);
+                }
+
+                // Update List Records Terakhir
+                const recordsContainer = document.getElementById('records-list');
+                recordsContainer.innerHTML = ''; 
+                
+                if (data.records && data.records.length > 0) {
+                    // Hanya tampilkan 10 record terakhir
+                    const displayRecords = data.records.slice(0, 10); 
+                    displayRecords.forEach((item, index) => {
+                        const temp_state = (item.relay_state === 'ON') ? 'ON' : 'OFF';
+                        const temp_color = (item.relay_state === 'ON') ? 'text-success' : 'text-danger';
+                        const html = `
+                        <div class="card mb-2 bg-dark shadow-sm p-3">
+                            <div class="row small">
+                                <div class="col-md-3">Suhu: <strong>${item.suhu.toFixed(2)} °C</strong></div>
+                                <div class="col-md-3">Kelembaban: <strong>${item.humidity.toFixed(2)} %</strong></div>
+                                <div class="col-md-3">Lux: <strong>${item.lux.toFixed(2)} %</strong></div>
+                                <div class="col-md-3">Relay: <strong class="${temp_color}">${temp_state}</strong></div>
+                                <div class="col-12 mt-1">Waktu: ${item.timestamp}</div>
+                            </div>
+                        </div>
+                        `;
+                        recordsContainer.innerHTML += html;
+                    });
+                } else {
+                    recordsContainer.innerHTML = '<p class="text-muted">Tidak ada data records sensor.</p>';
+                }
+
+                // Update Pengelompokan Bulan/Tahun
+                const monthYearContainer = document.getElementById('month-year-max-list');
+                monthYearContainer.innerHTML = ''; 
+
+                if (data.month_year_max && data.month_year_max.length > 0) {
+                    const listHtml = data.month_year_max.map(item => 
+                        `<li class="list-group-item">Bulan ${item.month_year}: Suhu Maks <strong class="text-danger">${item.max_suhu.toFixed(2)} °C</strong></li>`
+                    ).join('');
+                    monthYearContainer.innerHTML = `<ul class="list-group list-group-flush">${listHtml}</ul>`;
+                } else {
+                    monthYearContainer.innerHTML = '<p class="text-muted">Tidak ada data pengelompokan bulan/tahun.</p>';
+                }
+
+
+            } catch (error) {
+                document.getElementById('status').className = 'badge bg-danger text-white';
+                document.getElementById('status').textContent = `Gagal mengambil data: ${error.message}`;
+                console.error('Fetch error:', error);
+            }
+        }
+
+        // ==============================
+        // EVENT LISTENERS
+        // ==============================
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAndParseData(); 
+            
+            // Refresh data setiap 10 detik
+            setInterval(fetchAndParseData, 10000); 
+
+            // Listener untuk Tombol Relay
+            document.getElementById('relay-on').addEventListener('click', () => controlRelay('ON'));
+            document.getElementById('relay-off').addEventListener('click', () => controlRelay('OFF'));
+        });
+    </script>
+</body>
+</html>
